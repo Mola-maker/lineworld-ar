@@ -95,7 +95,8 @@ Android AR 模式下改用设备自带的 WebXR depth-sensing（ARCore）做遮�
 ## 部署（GitHub Pages）
 
 `.github/workflows/pages.yml`：推送到 `main` 即自动 测试 → 下载并缓存深度模型 → 构建 → 部署。
-首次需要在仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**。
+构建产物推送到 `gh-pages` 分支（每次覆盖，只保留一个提交）。
+若首次部署后网站仍 404：仓库 **Settings → Pages → Source** 选 **Deploy from a branch**，分支 `gh-pages`，目录 `/ (root)`，保存。
 
 ## 人物为什么不会“悬空”
 

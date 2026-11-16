@@ -1,21 +1,26 @@
 name: Deploy to GitHub Pages
 
+# Builds the site and force-pushes it as a single commit to the `gh-pages`
+# branch. GitHub serves that branch as the Pages site (Settings → Pages →
+# Source: "Deploy from a branch", branch gh-pages, folder / root). For public
+# repositories Pages is normally switched on automatically the first time the
+# branch appears. Each deploy replaces the branch, so the big model files don't
+# pile up in history.
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,17 +38,14 @@ jobs:
       - name: Self-host depth model + ONNX Runtime
         run: node scripts/fetch-assets.mjs
       - run: npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish dist/ to gh-pages
+        run: |
+          cd dist
+          touch .nojekyll   # serve files as-is, skip the Jekyll build
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Deploy ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          echo "Site: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_STEP_SUMMARY"
