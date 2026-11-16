@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#f6f1e3" />
+    <title>LineWorld</title>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <!-- dom-overlay root in WebXR: everything the user sees on top of AR lives here -->
+    <div id="overlay">
+      <div id="start" class="panel">
+        <h1 id="title">LineWorld</h1>
+        <p>Your surroundings, redrawn as lines – with a small companion standing in them.</p>
+        <button id="btn-xr" hidden>Start AR (tracked)</button>
+        <button id="btn-window">Start camera view</button>
+        <p id="status" class="muted"></p>
+        <p class="muted small">Camera frames never leave the device.</p>
+      </div>
+      <div id="hint" hidden></div>
+      <div id="toast" hidden></div>
+      <div id="fps" hidden></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
