@@ -16,11 +16,20 @@
 npm install
 npm run assets       # 下载深度模型 + 拷贝 ONNX Runtime 到 public/（只需一次，约 90 MB）
 npm run dev          # http://localhost:5173 ，电脑上直接用摄像头或演示场景
+npm run dev:https    # https://<电脑IP>:5173 ，同一 Wi-Fi 下手机可直接测试摄像头
 npm test             # 纯函数单测（FOV 对齐、贴地计算、配置合并）
 npm run build        # 产物在 dist/，任意静态 HTTPS 主机即可部署
 ```
 
 国内网络下载模型可用镜像：`HF_ENDPOINT=https://hf-mirror.com npm run assets`。
+
+### 看不到线条世界？
+
+| 现象 | 原因 / 解决 |
+|---|---|
+| 顶部橙色提示“当前显示的是内置演示房间” | 摄像头没打开。最常见：用 `http://192.168.x.x` 在手机上打开 —— 浏览器只在 HTTPS 下开放摄像头。用 GitHub Pages 地址，或 `npm run dev:https` 后打开 `https://电脑IP:5173`（首次接受证书警告） |
+| Android 上点“AR 跟踪模式”看到的是原始画面 | 旧版本问题：现在 AR 模式要求浏览器提供原始摄像头画面，不支持时自动切回摄像头模式 |
+| 线条太多/太少 | `?admin=1` → lineArt：`threshold` 越小线越多，`lineWidth` 越大只保留大轮廓；`method` 可切换 `canny / sobel / dog` |
 
 手机上测试必须是 **HTTPS**（摄像头和 WebXR 的硬性要求）：部署 `dist/` 到任意 HTTPS 静态托管，或用隧道（如 `cloudflared tunnel --url http://localhost:5173`）。
 
@@ -59,7 +68,7 @@ npm run build        # 产物在 dist/，任意静态 HTTPS 主机即可部署
 
 | 用途 | 做法 |
 |---|---|
-| **线条更干净** | 深度不连续处画线（物体轮廓），与颜色边缘线叠加；权重可调 |
+| **线条更干净（深度）** | 深度不连续处画线（物体轮廓），与颜色边缘线叠加；权重可调 |
 | **遮挡** | 估计的真实深度写入深度缓冲：人物走到箱子/沙发后面会被挡住；地面像素不参与，脚不会被“切掉” |
 | **地面估计** | 单目深度只有相对尺度；结合陀螺仪姿态与“眼睛离地高度”，用 RANSAC 拟合出**米制尺度**并标出**哪些像素是地面** |
 | **只能走在地面上** | 点到家具/墙上会提示“不是地面”；首次放置若落在家具后，自动走到最近的可见地面 |

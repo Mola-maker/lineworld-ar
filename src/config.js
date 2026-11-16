@@ -11,7 +11,7 @@ export const DEFAULTS = {
     fovLongSideDeg: 68,    // physical camera FOV across the long side of the sensor; phones ≈ 63–75
     heightMeters: 1.35,    // assumed eye height above the floor in window mode
     mirror: 'auto',        // 'auto' mirrors the front camera | true | false
-    processScale: 0.5,     // line extraction resolution; lower = smoother lines + faster
+    processSize: 480,      // line extraction resolution (long side, px); capped at what the camera delivers
     xrFlipY: false,        // flip the WebXR raw camera image if a device delivers it upside down
   },
 
@@ -19,9 +19,10 @@ export const DEFAULTS = {
     enabled: true,
     lineColor: '#1b2a4a',
     backgroundColor: '#f6f1e3',
-    threshold: 0.18,       // edge strength needed to draw a line
-    softness: 0.12,        // anti-aliasing width of the threshold
-    lineWidth: 1.2,        // sampling radius in processed pixels
+    method: 'canny',       // 'canny' (clean single-stroke outlines) | 'sobel' (more detail, more noise) | 'dog' (ink blobs)
+    threshold: 0.07,       // edge strength needed to draw a line (lower = more lines / detail)
+    softness: 0.04,        // anti-aliasing width of the threshold
+    lineWidth: 1.5,        // smoothing before edge detection (processed px); higher = only big outlines
     fillAmount: 0.0,       // 0 = pure lines, 1 = posterized tinted fill underneath
     fillLevels: 4,
     fillTint: '#c9d6ea',

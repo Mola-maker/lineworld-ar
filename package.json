@@ -7,7 +7,8 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "test": "node --test \"test/*.test.mjs\"",
-    "assets": "node scripts/fetch-assets.mjs"
+    "assets": "node scripts/fetch-assets.mjs",
+    "dev:https": "vite --host --mode https"
   },
   "license": "MIT",
   "dependencies": {
@@ -16,6 +17,7 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "vite": "^8.3.8"
   },
   "private": true,

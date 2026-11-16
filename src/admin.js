@@ -11,6 +11,7 @@ const ENUMS = {
   'camera.facing': ['environment', 'user'],
   'camera.mirror': ['auto', true, false],
   'character.style': ['toon', 'original'],
+  'lineArt.method': ['canny', 'sobel', 'dog'],
   'depth.device': ['auto', 'webgpu', 'wasm'],
   'depth.debugView': ['off', 'disparity', 'floor', 'meters'],
   'depth.dtypeWebGPU': ['q4f16', 'fp16', 'q8', 'fp32'],
@@ -18,9 +19,9 @@ const ENUMS = {
 };
 const RANGES = {
   'camera.fovLongSideDeg': [30, 120, 1], 'camera.heightMeters': [0.2, 2.2, 0.01],
-  'camera.processScale': [0.15, 1, 0.05],
-  'lineArt.threshold': [0, 1, 0.005], 'lineArt.softness': [0, 0.5, 0.005],
-  'lineArt.lineWidth': [0.5, 4, 0.05], 'lineArt.fillAmount': [0, 1, 0.01],
+  'camera.processSize': [160, 1280, 16],
+  'lineArt.threshold': [0, 0.5, 0.0025], 'lineArt.softness': [0, 0.3, 0.0025],
+  'lineArt.lineWidth': [0.4, 4, 0.05], 'lineArt.fillAmount': [0, 1, 0.01],
   'lineArt.fillLevels': [1, 8, 1], 'lineArt.originalMix': [0, 1, 0.01],
   'lineArt.jitter': [0, 4, 0.05], 'lineArt.jitterFps': [0, 30, 1], 'lineArt.grain': [0, 0.2, 0.005],
   'character.heightMeters': [0, 3, 0.01], 'character.footOffset': [-0.2, 0.2, 0.001],

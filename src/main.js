@@ -70,13 +70,27 @@ const canXR = config.mode !== 'window' && (await xrSupported());
 $('btn-xr').hidden = !canXR;
 $('btn-window').hidden = config.mode === 'webxr' && canXR;
 
-$('btn-window').onclick = async () => {
+const CAMERA_ERRORS = {
+  InsecureContext: '摄像头只能在 HTTPS（或本机 localhost）下使用。请用 https:// 地址打开（如 GitHub Pages，或 npm run dev:https）。<br>Camera needs HTTPS.',
+  NotAllowedError: '摄像头权限被拒绝。请在浏览器地址栏/系统设置里允许本网站使用摄像头，然后刷新。<br>Camera permission denied.',
+  NotFoundError: '没有找到摄像头。<br>No camera found.',
+  NotReadableError: '摄像头被其他程序占用（关闭视频会议等软件后刷新）。<br>Camera is in use by another app.',
+  OverconstrainedError: '摄像头不支持请求的参数。<br>Camera constraints not supported.',
+};
+
+async function startWindowMode() {
   $('start').hidden = true;
   mode = new WindowMode({ renderer, camera, lineArt, character, grounding, dom: renderer.domElement, depth, toast });
   const r = await mode.start(config);
-  toast(r.noCamera ? 'No camera available – showing a demo scene. Drag to look around.'
-    : r.gyro ? config.ui.hint : 'No gyroscope – drag to look around. ' + config.ui.hint);
-};
+  if (r.noCamera) {
+    // Never pass the demo room off as the user's camera: say so, persistently.
+    banner(`${CAMERA_ERRORS[r.cameraError] || `摄像头无法打开（${r.cameraError}）。`}<br><b>当前显示的是内置演示房间，不是你的摄像头画面。</b>`);
+  } else {
+    toast(r.gyro ? config.ui.hint : 'No gyroscope – drag to look around. ' + config.ui.hint);
+  }
+}
+
+$('btn-window').onclick = startWindowMode;
 
 $('btn-xr').onclick = async () => {
   $('start').hidden = true;
@@ -85,15 +99,15 @@ $('btn-xr').onclick = async () => {
     onEnd: () => { $('start').hidden = false; mode = null; },
   });
   try {
-    const r = await mode.start(config);
-    toast(r.cameraAccess
-      ? 'Move the phone slowly over the floor, then tap to place.'
-      : 'Line-art needs camera access (Chrome Android). Showing real camera. Tap the floor to place.');
+    await mode.start(config);
+    toast('Move the phone slowly over the floor, then tap to place.');
   } catch (e) {
-    console.error(e);
-    toast('Could not start AR: ' + e.message);
-    $('start').hidden = false;
+    // Usually: this phone/browser can't give raw camera access to WebXR, so the
+    // line world can't be drawn in tracked AR. Camera view always can.
+    console.warn('[xr] falling back to camera view:', e);
     mode = null;
+    await startWindowMode();
+    toast('此设备的 AR 模式无法获取摄像头画面，已切换到摄像头模式（线条世界）。');
   }
 };
 
@@ -155,6 +169,12 @@ renderer.setAnimationLoop((time, frame) => {
   frames++; fpsT += dt;
   if (fpsT > 0.5) { $('fps').textContent = `${Math.round(frames / fpsT)} fps`; frames = 0; fpsT = 0; }
 });
+
+function banner(html) {
+  const el = $('banner');
+  el.innerHTML = html;
+  el.hidden = false;
+}
 
 let toastTimer;
 function toast(msg) {

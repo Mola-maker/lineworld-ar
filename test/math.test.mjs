@@ -45,11 +45,12 @@ test('orientationToQuaternion: phone upright facing north looks at the horizon',
 });
 
 test('config deepMerge/diff round-trip', () => {
+  const before = JSON.stringify(DEFAULTS);
   const over = { lineArt: { threshold: 0.3 }, character: { animations: { idle: 'Breath' } } };
   const merged = deepMerge(DEFAULTS, over);
   assert.equal(merged.lineArt.threshold, 0.3);
   assert.equal(merged.lineArt.lineColor, DEFAULTS.lineArt.lineColor);
   assert.equal(merged.character.animations.walk, DEFAULTS.character.animations.walk);
   assert.deepEqual(diff(DEFAULTS, merged), over);
-  assert.equal(DEFAULTS.lineArt.threshold, 0.18, 'defaults untouched');
+  assert.equal(JSON.stringify(DEFAULTS), before, 'defaults untouched');
 });

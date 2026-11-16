@@ -14,6 +14,11 @@ export class WindowMode {
     this.video = document.createElement('video');
     this.video.playsInline = true;
     this.video.muted = true;
+    this.video.setAttribute('playsinline', '');
+    this.video.setAttribute('muted', '');
+    // iOS Safari only decodes frames reliably for videos attached to the page.
+    Object.assign(this.video.style, { position: 'fixed', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none', top: '0', left: '0' });
+    document.body.appendChild(this.video);
     this.hasGyro = false;
     this.placed = false;
     this.manual = { yaw: 0, pitch: THREE.MathUtils.degToRad(-22) };
@@ -23,6 +28,9 @@ export class WindowMode {
     this.cfg = cfg;
     await this.requestGyro();
     try {
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        throw Object.assign(new Error('insecure context'), { name: 'InsecureContext' });
+      }
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: cfg.camera.facing, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
@@ -33,6 +41,7 @@ export class WindowMode {
       this.texture.colorSpace = THREE.SRGBColorSpace;
     } catch (e) {
       console.warn('[window] no camera, using demo backdrop', e);
+      this.cameraError = e.name || 'Error';
       this.texture = renderDemoRoom(this.renderer, { fovLongSideDeg: cfg.camera.fovLongSideDeg, eyeHeight: cfg.camera.heightMeters });
       this.noCamera = true;
     }
@@ -41,7 +50,7 @@ export class WindowMode {
     this.bindInput();
     this.applyConfig(cfg);
     if (cfg.depth.enabled) this.depth?.start(cfg);
-    return { noCamera: !!this.noCamera, gyro: this.hasGyro };
+    return { noCamera: !!this.noCamera, cameraError: this.cameraError, gyro: this.hasGyro, video: [this.video.videoWidth, this.video.videoHeight] };
   }
 
   async requestGyro() {
@@ -73,7 +82,7 @@ export class WindowMode {
     this.camera.updateProjectionMatrix();
     this.camera.position.set(0, cfg.camera.heightMeters, 0);
     const mirror = cfg.camera.mirror === 'auto' ? cfg.camera.facing === 'user' : !!cfg.camera.mirror;
-    this.lineArt.setSource(this.texture, { uvScale: fit.uvScale, uvOffset: fit.uvOffset, mirror });
+    this.lineArt.setSource(this.texture, { uvScale: fit.uvScale, uvOffset: fit.uvOffset, mirror, size: [w, h] });
     this.grounding.setFloorHeight(0);
   }
 
@@ -164,6 +173,7 @@ export class WindowMode {
   stop() {
     this.depth?.stop();
     this.stream?.getTracks().forEach((t) => t.stop());
+    this.video.remove();
     if (this.onOrient) window.removeEventListener('deviceorientation', this.onOrient);
   }
 }

@@ -25,8 +25,13 @@ export class XRMode {
 
   async start(cfg) {
     this.cfg = cfg;
-    const optional = ['camera-access', 'light-estimation', 'dom-overlay', 'local-floor'];
-    const init = { requiredFeatures: ['hit-test'], optionalFeatures: optional, domOverlay: { root: this.overlay } };
+    // The line world needs the raw camera image. Without it the browser shows the
+    // untouched passthrough, so make it required and let the caller fall back
+    // to camera view when the device can't provide it.
+    const required = ['hit-test'];
+    const optional = ['light-estimation', 'dom-overlay', 'local-floor'];
+    (cfg.lineArt.enabled ? required : optional).push('camera-access');
+    const init = { requiredFeatures: required, optionalFeatures: optional, domOverlay: { root: this.overlay } };
     if (cfg.depth.xrNative) {
       // Device depth (ARCore): three.js uses it to occlude the character automatically.
       optional.push('depth-sensing');

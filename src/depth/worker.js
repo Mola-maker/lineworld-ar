@@ -10,7 +10,8 @@ async function init(o) {
   env.localModelPath = o.localModelPath;
   env.allowRemoteModels = !!o.remoteHost;
   if (o.remoteHost) env.remoteHost = o.remoteHost;
-  env.useBrowserCache = true;
+  // Cache API only exists in secure contexts; without it just re-download.
+  env.useBrowserCache = !!(self.isSecureContext && self.caches);
   if (o.ortPath) {
     env.backends.onnx.wasm.wasmPaths = {
       mjs: o.ortPath + 'ort-wasm-simd-threaded.asyncify.mjs',

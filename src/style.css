@@ -26,3 +26,6 @@ button + button { background: transparent; color: var(--ink); border: 2px solid 
 [hidden] { display: none !important; }
 .admin { --width: min(340px, 92vw); max-height: 90vh; overflow: auto; }
 .admin-info { margin: 0; padding: 6px 8px; white-space: pre-wrap; font-size: 11px; line-height: 1.4; }
+#banner { position: absolute; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translateX(-50%);
+  width: min(94vw, 520px); padding: 12px 14px; border-radius: 10px; background: #fff4e5; color: #6b3a00;
+  border: 2px solid #c77700; font-size: 14px; line-height: 1.5; pointer-events: none; }
