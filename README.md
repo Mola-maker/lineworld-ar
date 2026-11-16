@@ -1,5 +1,7 @@
 # LineWorld AR
 
+[![Deploy to GitHub Pages](https://github.com/Mola-maker/lineworld-ar/actions/workflows/pages.yml/badge.svg)](https://github.com/Mola-maker/lineworld-ar/actions/workflows/pages.yml)
+
 手机 / 电脑浏览器里的 AR 交互平台原型：摄像头拍到的现实被**实时重绘成线条世界**，一个 3D 人物**站在真实地面上**，点地面它会走过去，点它会挥手。所有视觉与行为参数都能在后台调整。
 
 - 在线体验（GitHub Pages）：https://mola-maker.github.io/lineworld-ar/ （管理后台：加 `?admin=1`）
