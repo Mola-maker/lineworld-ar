@@ -25,11 +25,14 @@ export class XRMode {
 
   async start(cfg) {
     this.cfg = cfg;
-    const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test'],
-      optionalFeatures: ['camera-access', 'light-estimation', 'dom-overlay', 'local-floor'],
-      domOverlay: { root: this.overlay },
-    });
+    const optional = ['camera-access', 'light-estimation', 'dom-overlay', 'local-floor'];
+    const init = { requiredFeatures: ['hit-test'], optionalFeatures: optional, domOverlay: { root: this.overlay } };
+    if (cfg.depth.xrNative) {
+      // Device depth (ARCore): three.js uses it to occlude the character automatically.
+      optional.push('depth-sensing');
+      init.depthSensing = { usagePreference: ['gpu-optimized'], dataFormatPreference: ['float32', 'luminance-alpha'] };
+    }
+    const session = await navigator.xr.requestSession('immersive-ar', init);
     this.session = session;
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType('local');
@@ -56,7 +59,8 @@ export class XRMode {
     session.addEventListener('end', () => this.end());
     this.character.root.visible = false;
     this.lineArt.setSource(null);
-    return { cameraAccess: this.cameraAccess };
+    this.depthSensing = !!session.enabledFeatures?.includes('depth-sensing');
+    return { cameraAccess: this.cameraAccess, depthSensing: this.depthSensing };
   }
 
   applyConfig(cfg) {

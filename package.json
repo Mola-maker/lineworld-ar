@@ -10,6 +10,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "lil-gui": "^0.21.0",
     "three": "^0.187.0"
   },

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REPROJECT_GLSL } from './depth/depth.js';
 
 // Turns any camera texture (VideoTexture in window mode, the WebXR raw-camera
 // ExternalTexture in AR mode) into a line drawing that sits behind the 3D scene.
@@ -41,7 +42,23 @@ const drawFrag = /* glsl */ `
   uniform float jitter, grain, time;
   uniform bool enabled, invert;
   uniform vec3 lineColor, bgColor, fillTint;
+  uniform float colorEdgeWeight, depthEdgeWeight, depthThreshold;
+  uniform int depthDebug;
   varying vec2 vUv;
+  ${REPROJECT_GLSL}
+
+  // Edges of the depth map: object silhouettes, independent of texture/lighting.
+  float depthEdge(vec2 uv) {
+    if (!depthValid || depthEdgeWeight <= 0.0) return 0.0;
+    vec3 rc;
+    vec2 c = reprojectUv(uv, rc);
+    if (c.x < 0.0 || c.y < 0.0 || c.x > 1.0 || c.y > 1.0) return 0.0;
+    vec2 o = 1.0 / vec2(textureSize(tDepth, 0)) * 0.75;
+    float l = texture2D(tDepth, c - vec2(o.x, 0.0)).b, r = texture2D(tDepth, c + vec2(o.x, 0.0)).b;
+    float b = texture2D(tDepth, c - vec2(0.0, o.y)).b, t = texture2D(tDepth, c + vec2(0.0, o.y)).b;
+    float g = length(vec2(r - l, t - b));
+    return smoothstep(depthThreshold, depthThreshold * 2.0, g) * depthEdgeWeight;
+  }
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float lum(vec2 uv) { return dot(texture2D(tSrc, uv).rgb, vec3(0.2126, 0.7152, 0.0722)); }
@@ -60,7 +77,8 @@ const drawFrag = /* glsl */ `
     float bl = lum(uv + vec2(-o.x, -o.y)), b = lum(uv + vec2(0.0, -o.y)), br = lum(uv + vec2(o.x, -o.y));
     float gx = -tl - 2.0 * l - bl + tr + 2.0 * r + br;
     float gy = -bl - 2.0 * b - br + tl + 2.0 * t + tr;
-    float edge = smoothstep(threshold, threshold + softness, length(vec2(gx, gy)));
+    float edge = smoothstep(threshold, threshold + softness, length(vec2(gx, gy))) * colorEdgeWeight;
+    edge = clamp(max(edge, depthEdge(uv)), 0.0, 1.0);
 
     vec3 paper = invert ? lineColor : bgColor;
     vec3 ink = invert ? bgColor : lineColor;
@@ -72,7 +90,16 @@ const drawFrag = /* glsl */ `
     vec3 col = mix(base, ink, edge);
     col = mix(col, src, originalMix);
     col += (hash(gl_FragCoord.xy + time) - 0.5) * grain;
-    gl_FragColor = vec4(enabled ? col : src, 1.0);
+    col = enabled ? col : src;
+    if (depthDebug > 0 && depthValid) {
+      vec3 rc;
+      vec2 c = reprojectUv(vUv, rc);
+      vec4 s = texture2D(tDepth, clamp(c, 0.0, 1.0));
+      if (depthDebug == 1) col = vec3(s.b);                                   // disparity
+      else if (depthDebug == 2) col = mix(col, vec3(0.1, 0.8, 0.3), s.g * 0.55); // floor mask
+      else col = vec3(fract(s.r));                                            // metric bands, 1 per meter
+    }
+    gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -112,6 +139,9 @@ export class LineArt {
         enabled: { value: true }, invert: { value: false },
         lineColor: { value: new THREE.Color() }, bgColor: { value: new THREE.Color() },
         fillTint: { value: new THREE.Color() },
+        colorEdgeWeight: { value: 1 }, depthEdgeWeight: { value: 0 }, depthThreshold: { value: 0.03 }, depthDebug: { value: 0 },
+        tDepth: { value: null }, depthValid: { value: false },
+        uReproj: { value: new THREE.Matrix3() }, uTan: { value: new THREE.Vector2(1, 1) },
       },
       depthTest: false,
       depthWrite: false,
@@ -130,12 +160,21 @@ export class LineArt {
     u.lineColor.value.set(c.lineArt.lineColor);
     u.bgColor.value.set(c.lineArt.backgroundColor);
     u.fillTint.value.set(c.lineArt.fillTint);
+    u.colorEdgeWeight.value = c.lineArt.colorEdgeWeight;
+    u.depthEdgeWeight.value = c.depth.enabled ? c.lineArt.depthEdgeWeight : 0;
+    u.depthThreshold.value = c.lineArt.depthThreshold;
+    u.depthDebug.value = ['off', 'disparity', 'floor', 'meters'].indexOf(c.depth.debugView);
     for (const k of ['threshold', 'softness', 'lineWidth', 'fillAmount', 'fillLevels', 'originalMix', 'jitter', 'grain']) {
       u[k].value = c.lineArt[k];
     }
     u.invert.value = c.lineArt.invert;
     this.jitterFps = c.lineArt.jitterFps;
     this.processScale = c.camera.processScale;
+  }
+
+  /** Share the depth estimator's texture + reprojection uniforms (same objects, updated in place). */
+  attachDepth(depthUniforms) {
+    Object.assign(this.drawMat.uniforms, depthUniforms);
   }
 
   /** Point at a new camera texture with its crop. */
@@ -147,6 +186,7 @@ export class LineArt {
     u.mirror.value = mirror;
     u.flipY.value = flipY;
     this.backdrop.visible = !!texture;
+    this.source = texture ? { image: texture.image, uvScale, uvOffset, mirror } : null;
   }
 
   /** Run pass 1. Call once per frame before renderer.render(scene, camera). */

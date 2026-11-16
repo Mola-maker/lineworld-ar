@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { coverFit, orientationToQuaternion, rayToFloor } from '../math.js';
+import { renderDemoRoom } from '../demoRoom.js';
 
 // "Magic window" mode: works everywhere (iOS Safari, desktop webcams).
 // The camera image is the backdrop; the gyroscope rotates the 3D camera;
@@ -8,8 +9,8 @@ import { coverFit, orientationToQuaternion, rayToFloor } from '../math.js';
 // around makes the character slide. Use WebXR mode for true tracking.
 
 export class WindowMode {
-  constructor({ camera, lineArt, character, grounding, dom }) {
-    Object.assign(this, { camera, lineArt, character, grounding, dom });
+  constructor({ renderer, camera, lineArt, character, grounding, dom, depth, toast }) {
+    Object.assign(this, { renderer, camera, lineArt, character, grounding, dom, depth, toast });
     this.video = document.createElement('video');
     this.video.playsInline = true;
     this.video.muted = true;
@@ -32,13 +33,14 @@ export class WindowMode {
       this.texture.colorSpace = THREE.SRGBColorSpace;
     } catch (e) {
       console.warn('[window] no camera, using demo backdrop', e);
-      this.texture = demoTexture();
+      this.texture = renderDemoRoom(this.renderer, { fovLongSideDeg: cfg.camera.fovLongSideDeg, eyeHeight: cfg.camera.heightMeters });
       this.noCamera = true;
     }
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.generateMipmaps = false;
     this.bindInput();
     this.applyConfig(cfg);
+    if (cfg.depth.enabled) this.depth?.start(cfg);
     return { noCamera: !!this.noCamera, gyro: this.hasGyro };
   }
 
@@ -100,7 +102,14 @@ export class WindowMode {
     const hitCharacter = ray.intersectObject(this.character.root, true).length > 0;
     if (hitCharacter) return this.character.wave();
     const hit = rayToFloor(ray.ray.origin.toArray(), ray.ray.direction.toArray(), 0);
-    if (hit) this.character.walkTo(new THREE.Vector3(...hit));
+    if (!hit) return;
+    // With depth, refuse taps on furniture / walls: only detected floor is walkable.
+    if (this.cfg.depth.enabled && this.cfg.depth.tapRequiresFloor) {
+      const onFloor = this.depth?.isFloorAt((ndc.x + 1) / 2, (ndc.y + 1) / 2);
+      if (onFloor === false) return this.toast?.('That spot is not floor');
+    }
+    this.userMoved = true;
+    this.character.walkTo(new THREE.Vector3(...hit));
   }
 
   update() {
@@ -113,6 +122,33 @@ export class WindowMode {
     }
     this.camera.updateMatrixWorld();
     if (!this.placed && (this.hasGyro ? this.orient : true)) this.placeInFront();
+    if (this.cfg.depth.enabled) {
+      this.depth?.tick(this.lineArt.source, this.camera, this.cfg.camera.heightMeters);
+      this.depth?.updateUniforms(this.camera);
+      // First valid depth: if the character landed on furniture, move it to real floor.
+      if (this.depth?.valid && !this.floorChecked && !this.userMoved) {
+        this.floorChecked = true;
+        this.moveToFloor();
+      }
+    }
+  }
+
+  /** Nearest detected-floor point along the view direction (closer first). */
+  moveToFloor() {
+    const p = this.character.root.position;
+    const v = p.clone().project(this.camera);
+    if (this.depth.isFloorAt((v.x + 1) / 2, (v.y + 1) / 2)) return;
+    const eye = new THREE.Vector3(this.camera.position.x, 0, this.camera.position.z);
+    const dir = p.clone().sub(eye).setY(0).normalize();
+    for (let d = 0.8; d <= this.cfg.depth.maxFloorDistance; d += 0.2) {
+      const q = eye.clone().addScaledVector(dir, d);
+      const s = q.clone().project(this.camera);
+      if (Math.abs(s.x) > 1 || Math.abs(s.y) > 1) continue;
+      if (this.depth.isFloorAt((s.x + 1) / 2, (s.y + 1) / 2)) {
+        this.character.walkTo(q);
+        return;
+      }
+    }
   }
 
   placeInFront() {
@@ -126,25 +162,8 @@ export class WindowMode {
   }
 
   stop() {
+    this.depth?.stop();
     this.stream?.getTracks().forEach((t) => t.stop());
     if (this.onOrient) window.removeEventListener('deviceorientation', this.onOrient);
   }
-}
-
-function demoTexture() {
-  // Stand-in "room" so desktop without a webcam still shows the line effect.
-  const cv = document.createElement('canvas');
-  cv.width = 1280; cv.height = 720;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#d8d2c4'; c.fillRect(0, 0, 1280, 720);
-  c.fillStyle = '#a99f8c'; c.fillRect(0, 430, 1280, 290);
-  c.strokeStyle = '#6e6656'; c.lineWidth = 3;
-  for (let i = -8; i <= 8; i++) { c.beginPath(); c.moveTo(640 + i * 40, 430); c.lineTo(640 + i * 220, 720); c.stroke(); }
-  for (let y = 450, s = 20; y < 720; y += s, s *= 1.25) { c.beginPath(); c.moveTo(0, y); c.lineTo(1280, y); c.stroke(); }
-  c.fillStyle = '#8b7d66'; c.fillRect(140, 210, 260, 240); c.fillStyle = '#c7bfae'; c.fillRect(160, 230, 220, 90);
-  c.fillStyle = '#5d6b78'; c.fillRect(860, 120, 300, 200); c.fillStyle = '#9fb3c4'; c.fillRect(875, 135, 270, 170);
-  c.beginPath(); c.arc(1010, 520, 60, 0, Math.PI * 2); c.fillStyle = '#6e7f5a'; c.fill();
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
 }

@@ -29,6 +29,29 @@ export const DEFAULTS = {
     jitterFps: 8,          // how often the wobble changes (boiling-line look)
     grain: 0.04,           // paper grain
     invert: false,
+    colorEdgeWeight: 1.0,  // lines from colour/brightness changes
+    depthEdgeWeight: 1.0,  // lines from depth discontinuities (needs depth.enabled)
+    depthThreshold: 0.035,
+  },
+
+  depth: {                 // monocular depth (Depth Anything V2) – window mode only
+    enabled: true,
+    occlusion: true,       // real objects closer than the character hide it
+    occlusionBias: 0.08,   // meters pushed back, avoids flicker at contact points
+    tapRequiresFloor: true,// tap-to-walk only accepts pixels detected as floor
+    floorTolerance: 0.12,  // relative error allowed for a pixel to count as floor
+    maxFloorDistance: 8,
+    inputSize: 266,        // model input long side (multiple of 14); higher = sharper, slower
+    maxFps: 12,
+    device: 'auto',        // 'auto' (WebGPU if available) | 'webgpu' | 'wasm'
+    dtypeWebGPU: 'q4f16',
+    dtypeWasm: 'q8',
+    modelId: 'onnx-community/depth-anything-v2-small',
+    localModelPath: 'models/',  // self-hosted copy (scripts/fetch-assets.mjs)
+    remoteHost: 'https://huggingface.co/', // fallback; e.g. https://hf-mirror.com/ in mainland China; '' = never
+    ortPath: 'ort/',       // self-hosted ONNX Runtime wasm; '' = CDN default
+    debugView: 'off',      // 'off' | 'disparity' | 'floor' | 'meters' (bands, one per meter)
+    xrNative: true,        // WebXR mode: use the device's own depth sensing for occlusion
   },
 
   character: {

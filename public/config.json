@@ -22,7 +22,29 @@
     "jitter": 0.6,
     "jitterFps": 8,
     "grain": 0.04,
-    "invert": false
+    "invert": false,
+    "colorEdgeWeight": 1,
+    "depthEdgeWeight": 1,
+    "depthThreshold": 0.035
+  },
+  "depth": {
+    "enabled": true,
+    "occlusion": true,
+    "occlusionBias": 0.08,
+    "tapRequiresFloor": true,
+    "floorTolerance": 0.12,
+    "maxFloorDistance": 8,
+    "inputSize": 266,
+    "maxFps": 12,
+    "device": "auto",
+    "dtypeWebGPU": "q4f16",
+    "dtypeWasm": "q8",
+    "modelId": "onnx-community/depth-anything-v2-small",
+    "localModelPath": "models/",
+    "remoteHost": "https://huggingface.co/",
+    "ortPath": "ort/",
+    "debugView": "off",
+    "xrNative": true
   },
   "character": {
     "url": "models/RobotExpressive.glb",

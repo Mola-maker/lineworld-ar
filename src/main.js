@@ -6,6 +6,8 @@ import { Grounding } from './grounding.js';
 import { WindowMode } from './modes/window.js';
 import { XRMode, xrSupported } from './modes/webxr.js';
 import { createAdmin } from './admin.js';
+import { DepthEstimator } from './depth/depth.js';
+import { createOccluder } from './depth/occluder.js';
 import './style.css';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +30,14 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.02, 100);
 const lineArt = new LineArt();
 scene.add(lineArt.backdrop);
+const depth = new DepthEstimator();
+lineArt.attachDepth(depth.uniforms);
+const occluder = createOccluder(depth.uniforms);
+scene.add(occluder);
+depth.onStatus = (i) => {
+  admin?.refresh();
+  if (i.state === 'error') toast('Depth unavailable: ' + i.progress);
+};
 const grounding = new Grounding(scene);
 const character = new Character();
 scene.add(character.root);
@@ -41,6 +51,7 @@ function applyAll(cfg) {
   grounding.applyConfig(cfg);
   character.applyConfig(cfg);
   mode?.applyConfig(cfg);
+  if (mode instanceof WindowMode) depth.applyConfig(cfg);
   $('fps').hidden = !cfg.ui.showFps;
   admin?.refresh();
 }
@@ -61,7 +72,7 @@ $('btn-window').hidden = config.mode === 'webxr' && canXR;
 
 $('btn-window').onclick = async () => {
   $('start').hidden = true;
-  mode = new WindowMode({ camera, lineArt, character, grounding, dom: renderer.domElement });
+  mode = new WindowMode({ renderer, camera, lineArt, character, grounding, dom: renderer.domElement, depth, toast });
   const r = await mode.start(config);
   toast(r.noCamera ? 'No camera available – showing a demo scene. Drag to look around.'
     : r.gyro ? config.ui.hint : 'No gyroscope – drag to look around. ' + config.ui.hint);
@@ -94,7 +105,7 @@ function openAdmin() {
     onChange: () => applyAll(config),
     onReloadModel: () => loadModel(),
     onLocalModel: (url) => loadModel(url),
-    getInfo: () => character.info,
+    getInfo: () => ({ ...character.info, depth: depth.info }),
   });
   admin.refresh();
 }
@@ -133,6 +144,8 @@ renderer.setAnimationLoop((time, frame) => {
     ? new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld)
     : camera.position.clone();
   viewer.y = character.root.position.y;
+  occluder.visible = mode instanceof WindowMode;
+  occluder.update(camera, config);
   character.update(dt, viewer);
   grounding.update();
   lineArt.update(renderer, time / 1000);
@@ -152,4 +165,4 @@ function toast(msg) {
 }
 
 // Handle for debugging from the browser console / automated tests.
-window.lineworld = { config, character, scene, renderer, lineArt, grounding };
+window.lineworld = { config, character, scene, renderer, lineArt, grounding, depth };

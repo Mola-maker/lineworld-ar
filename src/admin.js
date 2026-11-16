@@ -10,6 +10,10 @@ const ENUMS = {
   'camera.facing': ['environment', 'user'],
   'camera.mirror': ['auto', true, false],
   'character.style': ['toon', 'original'],
+  'depth.device': ['auto', 'webgpu', 'wasm'],
+  'depth.debugView': ['off', 'disparity', 'floor', 'meters'],
+  'depth.dtypeWebGPU': ['q4f16', 'fp16', 'q8', 'fp32'],
+  'depth.dtypeWasm': ['q8', 'q4', 'fp32'],
 };
 const RANGES = {
   'camera.fovLongSideDeg': [30, 120, 1], 'camera.heightMeters': [0.2, 2.2, 0.01],
@@ -23,6 +27,9 @@ const RANGES = {
   'character.toonSteps': [2, 6, 1], 'character.walkSpeed': [0.1, 3, 0.05], 'character.crossFade': [0, 1, 0.05],
   'grounding.shadowOpacity': [0, 1, 0.01], 'grounding.contactOpacity': [0, 1, 0.01],
   'grounding.contactRadius': [0.05, 1.5, 0.01],
+  'lineArt.colorEdgeWeight': [0, 2, 0.05], 'lineArt.depthEdgeWeight': [0, 2, 0.05], 'lineArt.depthThreshold': [0.005, 0.2, 0.005],
+  'depth.occlusionBias': [0, 0.5, 0.01], 'depth.floorTolerance': [0.02, 0.4, 0.01], 'depth.maxFloorDistance': [2, 15, 0.5],
+  'depth.inputSize': [140, 518, 14], 'depth.maxFps': [1, 30, 1],
   'lighting.ambientIntensity': [0, 4, 0.05], 'lighting.sunIntensity': [0, 8, 0.05],
   'lighting.sunAzimuthDeg': [-180, 180, 1], 'lighting.sunElevationDeg': [5, 90, 1],
 };
@@ -70,6 +77,7 @@ export function createAdmin({ config, base, onChange, onReloadModel, onLocalMode
       `height:    ${i.height} m (raw ${i.rawHeight})`,
       `triangles: ${i.triangles}`,
       `clips:     ${i.clips.join(', ') || '—'}`,
+      `depth:     ${i.depth.state}${i.depth.device ? ' ' + i.depth.device : ''}${i.depth.state === 'ready' ? ` ${i.depth.fps} fps, ${i.depth.ms} ms, floor ${Math.round(i.depth.floorRatio * 100)}%` : ''} ${i.depth.progress || ''}`,
       ...(i.warnings.length ? ['', 'warnings:', ...i.warnings.map((w) => `· ${w}`)] : ['', 'no warnings']),
     ].join('\n');
   };
