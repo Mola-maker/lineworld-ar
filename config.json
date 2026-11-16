@@ -1,0 +1,103 @@
+{
+  "mode": "auto",
+  "camera": {
+    "facing": "environment",
+    "fovLongSideDeg": 68,
+    "heightMeters": 1.35,
+    "mirror": "auto",
+    "processSize": 480,
+    "xrFlipY": false
+  },
+  "lineArt": {
+    "enabled": true,
+    "lineColor": "#1b2a4a",
+    "backgroundColor": "#f6f1e3",
+    "method": "canny",
+    "threshold": 0.07,
+    "softness": 0.04,
+    "lineWidth": 1.5,
+    "fillAmount": 0,
+    "fillLevels": 4,
+    "fillTint": "#c9d6ea",
+    "originalMix": 0,
+    "jitter": 0.6,
+    "jitterFps": 8,
+    "grain": 0.04,
+    "invert": false,
+    "colorEdgeWeight": 1,
+    "depthEdgeWeight": 1,
+    "depthThreshold": 0.035
+  },
+  "depth": {
+    "enabled": true,
+    "occlusion": true,
+    "occlusionBias": 0.08,
+    "tapRequiresFloor": true,
+    "floorTolerance": 0.12,
+    "maxFloorDistance": 8,
+    "inputSize": 266,
+    "maxFps": 12,
+    "device": "auto",
+    "dtypeWebGPU": "q4f16",
+    "dtypeWasm": "q8",
+    "modelId": "onnx-community/depth-anything-v2-small",
+    "localModelPath": "models/",
+    "remoteHost": "https://huggingface.co/",
+    "ortPath": "ort/",
+    "debugView": "off",
+    "xrNative": true
+  },
+  "character": {
+    "url": "models/RobotExpressive.glb",
+    "heightMeters": 0.9,
+    "autoGround": true,
+    "footOffset": 0,
+    "distanceMeters": 2.2,
+    "faceViewer": true,
+    "style": "toon",
+    "outlineColor": "#1b2a4a",
+    "outlineWidth": 0.01,
+    "toonSteps": 3,
+    "animations": {
+      "idle": "Idle",
+      "walk": "Walking",
+      "wave": "Wave"
+    },
+    "footIK": {
+      "enabled": true,
+      "dynamicGrounding": true,
+      "maxCorrection": 0.06,
+      "footLock": true,
+      "contactHeight": 0.03,
+      "releaseDistance": 0.15,
+      "blendTime": 0.12,
+      "bones": {
+        "left": "",
+        "right": ""
+      }
+    },
+    "walkSpeed": 0,
+    "crossFade": 0.25
+  },
+  "grounding": {
+    "shadowCatcher": true,
+    "shadowOpacity": 0.35,
+    "shadowMapSize": 1024,
+    "contactShadow": true,
+    "contactOpacity": 0.55,
+    "contactRadius": 0.35,
+    "showReticle": true
+  },
+  "lighting": {
+    "ambientIntensity": 1.1,
+    "sunIntensity": 2.2,
+    "sunAzimuthDeg": 35,
+    "sunElevationDeg": 55,
+    "useXREstimation": true
+  },
+  "ui": {
+    "title": "LineWorld",
+    "hint": "Tap the floor to move the character",
+    "showFps": false
+  }
+}
