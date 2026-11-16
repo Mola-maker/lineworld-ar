@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { fitHeight, groundOffset } from './math.js';
 import { buildPlaceholder } from './placeholder.js';
+import { FootIK, findLegs } from './footik.js';
 
 // Hierarchy:
 //   root      ← placed on the floor (position = foot point, rotation.y = facing)
@@ -28,6 +29,8 @@ export class Character {
     this.outlines = [];
     this.info = { source: '', clips: [], height: 0, triangles: 0, warnings: [] };
     this.placeholderUpdate = null;
+    this.footIK = new FootIK();
+    this.baseY = 0;
   }
 
   async load(url, cfg) {
@@ -94,6 +97,8 @@ export class Character {
     this.pivot.scale.setScalar(s);
     const minY = c.autoGround ? box.min.y * s : 0;
     this.pivot.position.y = groundOffset(minY, c.footOffset);
+    this.baseY = this.pivot.position.y;
+    if (reload) this.info.legs = this.footIK.setup(this.model, this.root, c.footIK);
 
     this.info.height = +(size.y * s).toFixed(3);
     this.info.rawHeight = +size.y.toFixed(3);
@@ -101,7 +106,10 @@ export class Character {
     this.info.warnings = checkModel(this.model, box, this.clips, c);
 
     this.setStyle(c, s);
-    if (reload) this.buildActions(c);
+    if (reload) {
+      this.buildActions(c);
+      this.info.strideSpeed = this.measureStrideSpeed();
+    }
     this.play('idle', 0);
   }
 
@@ -114,6 +122,34 @@ export class Character {
     }
     // Fall back to the first clip as idle so something always moves.
     if (!this.actions.idle && this.clips[0]) this.actions.idle = this.mixer.clipAction(this.clips[0]);
+  }
+
+  /**
+   * Walk speed that matches the walk clip: average horizontal speed of the
+   * planted (lowest) foot relative to the body. Moving the body at exactly this
+   * speed makes planted feet stand still on the floor.
+   */
+  measureStrideSpeed() {
+    const walk = this.actions.walk, legs = this.footIK.legs;
+    if (!walk || !legs.length) return 0;
+    const dur = walk.getClip().duration, N = 60;
+    this.mixer.stopAllAction();
+    walk.reset().setEffectiveWeight(1).play();
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      this.mixer.setTime((dur * i) / N);
+      this.root.updateMatrixWorld(true);
+      pts.push(legs.map((l) => this.root.worldToLocal(l.foot.getWorldPosition(new THREE.Vector3()))));
+    }
+    walk.stop();
+    let dist = 0, time = 0;
+    for (let i = 1; i <= N; i++) {
+      const k = pts[i][0].y < pts[i][1].y ? 0 : 1; // planted foot = lower one
+      const a = pts[i - 1][k], b = pts[i][k];
+      dist += Math.hypot(b.x - a.x, b.z - a.z);
+      time += dur / N;
+    }
+    return +(dist / time).toFixed(3);
   }
 
   play(name, fade = this.cfg?.crossFade ?? 0.25) {
@@ -188,12 +224,13 @@ export class Character {
   }
 
   update(dt, viewer) {
-    this.mixer?.update(dt);
-    this.placeholderUpdate?.(dt, !!this.target);
+    // Order matters: move the body first, then animate, then let IK pin the
+    // feet against the final body position of this frame.
     if (this.target) {
       const p = this.root.position;
       const d = this.target.clone().sub(p);
-      const step = (this.cfg?.walkSpeed ?? 0.7) * dt;
+      const speed = this.cfg?.walkSpeed > 0 ? this.cfg.walkSpeed : (this.info.strideSpeed || 0.7);
+      const step = speed * dt;
       if (d.length() <= step) {
         p.copy(this.target);
         this.target = null;
@@ -203,7 +240,15 @@ export class Character {
         p.addScaledVector(d.normalize(), step);
       }
     }
+    this.footIK.preUpdate();
+    this.mixer?.update(dt);
+    this.placeholderUpdate?.(dt, !!this.target);
+    if (this.cfg) {
+      this.root.updateMatrixWorld(true);
+      this.footIK.update(dt, this.cfg.footIK, this.pivot, this.baseY, this.root.position.y);
+    }
   }
+
 }
 
 function makeGradient(steps) {
@@ -284,6 +329,7 @@ function checkModel(root, box, clips, c) {
   }
   let tris = 0;
   root.traverse((o) => { if (o.isMesh) tris += (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3; });
+  if (!findLegs(root, c.footIK?.bones).length && clips.length) w.push('Foot IK: no left/right leg chain found; use standard bone names (spec §5.1)');
   if (tris > 60000) w.push(`${Math.round(tris)} triangles; mobile budget is ≤ 30k (spec §4)`);
   return w;
 }

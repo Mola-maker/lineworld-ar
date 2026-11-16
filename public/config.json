@@ -62,7 +62,20 @@
       "walk": "Walking",
       "wave": "Wave"
     },
-    "walkSpeed": 0.7,
+    "footIK": {
+      "enabled": true,
+      "dynamicGrounding": true,
+      "maxCorrection": 0.06,
+      "footLock": true,
+      "contactHeight": 0.03,
+      "releaseDistance": 0.15,
+      "blendTime": 0.12,
+      "bones": {
+        "left": "",
+        "right": ""
+      }
+    },
+    "walkSpeed": 0,
     "crossFade": 0.25
   },
   "grounding": {

@@ -70,7 +70,17 @@ export const DEFAULTS = {
       walk: 'Walking',
       wave: 'Wave',
     },
-    walkSpeed: 0.7,        // m/s when tap-to-move
+    footIK: {
+      enabled: true,
+      dynamicGrounding: true, // shift the body each frame so the lowest foot touches the floor
+      maxCorrection: 0.06,    // meters; bigger gaps are treated as jumps and left alone
+      footLock: true,         // pin planted feet to the floor (anti foot-sliding)
+      contactHeight: 0.03,    // sole height (m) below which a foot counts as planted
+      releaseDistance: 0.15,  // unpin when the animated foot is this far from its pin
+      blendTime: 0.12,        // seconds to blend IK in/out
+      bones: { left: '', right: '' }, // foot bone names; '' = detect automatically
+    },
+    walkSpeed: 0,          // m/s when tap-to-move; 0 = auto, measured from the walk clip's stride
     crossFade: 0.25,
   },
 
