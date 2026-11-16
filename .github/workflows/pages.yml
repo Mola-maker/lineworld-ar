@@ -1,11 +1,10 @@
 name: Deploy to GitHub Pages
 
-# Builds the site and force-pushes it as a single commit to the `gh-pages`
-# branch. GitHub serves that branch as the Pages site (Settings → Pages →
-# Source: "Deploy from a branch", branch gh-pages, folder / root). For public
-# repositories Pages is normally switched on automatically the first time the
-# branch appears. Each deploy replaces the branch, so the big model files don't
-# pile up in history.
+# Works with either Pages setting (Settings → Pages → Build and deployment → Source):
+#   • "Deploy from a branch" → gh-pages / (root): served from the gh-pages branch,
+#     which this workflow force-pushes (one commit, so model files don't pile up).
+#   • "GitHub Actions": the same build is uploaded and deployed as an artifact.
+# If Pages is not switched on at all, the run fails with a message saying so.
 
 on:
   push:
@@ -13,15 +12,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write   # push gh-pages
+  pages: write      # deploy via Actions
+  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      build_type: ${{ steps.pages.outputs.build_type }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,14 +41,54 @@ jobs:
       - name: Self-host depth model + ONNX Runtime
         run: node scripts/fetch-assets.mjs
       - run: npm run build
-      - name: Publish dist/ to gh-pages
+      - run: touch dist/.nojekyll   # serve files as-is, no Jekyll
+
+      - name: Publish dist/ to gh-pages branch
         run: |
           cd dist
-          touch .nojekyll   # serve files as-is, skip the Jekyll build
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -qm "Deploy ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
-          echo "Site: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_STEP_SUMMARY"
+          rm -rf .git
+
+      - name: Check how Pages is configured
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -s -o pages.json -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
+          if [ "$code" != 200 ]; then
+            echo "build_type=none" >> "$GITHUB_OUTPUT"
+            msg="GitHub Pages is not enabled. Open https://github.com/${GITHUB_REPOSITORY}/settings/pages → Source: 'Deploy from a branch' → Branch: gh-pages, / (root) → Save. (The site files are already on the gh-pages branch.)"
+            echo "::error::$msg"
+            echo "### ❌ $msg" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          type=$(jq -r '.build_type' pages.json)
+          url=$(jq -r '.html_url' pages.json)
+          echo "build_type=$type" >> "$GITHUB_OUTPUT"
+          echo "### Pages: $type → $url" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$type" = legacy ]; then
+            src=$(jq -r '.source.branch + " " + .source.path' pages.json)
+            [ "$src" = "gh-pages /" ] || echo "::warning::Pages serves '$src'; set Source branch to gh-pages / (root)."
+          fi
+
+      - if: steps.pages.outputs.build_type == 'workflow'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.build_type == 'workflow'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
