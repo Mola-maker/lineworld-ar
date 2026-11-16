@@ -1,6 +1,7 @@
 // Every tunable lives here. The admin panel (?admin=1) edits this object live;
 // the same shape is what public/config.json, ?config=<url> and the exported
-// JSON contain. Layering, later wins: DEFAULTS < config.json < ?config= < saved local edits.
+// JSON contain. Layering, later wins:
+//   DEFAULTS < config.json < configs/<profile>.json (?profile=) < ?config=<url> < saved local edits
 
 export const DEFAULTS = {
   mode: 'auto', // 'auto' | 'webxr' | 'window'  (window = camera + gyro fallback, works on iOS/desktop)
@@ -137,7 +138,9 @@ export function diff(base, cur) {
   return out;
 }
 
-const STORAGE_KEY = 'lineworld.config.v1';
+const profileParam = () => new URLSearchParams(globalThis.location?.search || '').get('profile') || '';
+// Local edits are kept per profile so editing one campaign doesn't leak into another.
+const storageKey = () => 'lineworld.config.v1' + (profileParam() ? ':' + profileParam() : '');
 
 async function fetchJson(url) {
   try {
@@ -150,7 +153,7 @@ async function fetchJson(url) {
 
 export function readLocal() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    return JSON.parse(localStorage.getItem(storageKey()) || 'null');
   } catch {
     return null;
   }
@@ -158,8 +161,8 @@ export function readLocal() {
 
 export function writeLocal(obj) {
   try {
-    if (obj) localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-    else localStorage.removeItem(STORAGE_KEY);
+    if (obj) localStorage.setItem(storageKey(), JSON.stringify(obj));
+    else localStorage.removeItem(storageKey());
   } catch { /* private mode: edits just won't persist */ }
 }
 
@@ -167,6 +170,8 @@ export function writeLocal(obj) {
 export async function loadConfig() {
   const params = new URLSearchParams(location.search);
   let base = deepMerge(DEFAULTS, await fetchJson('config.json'));
+  const profile = params.get('profile');
+  if (profile && /^[a-z0-9][a-z0-9_-]{0,40}$/i.test(profile)) base = deepMerge(base, await fetchJson(`configs/${profile}.json`));
   const remote = params.get('config');
   if (remote) base = deepMerge(base, await fetchJson(remote));
   const config = params.has('clean') ? structuredClone(base) : deepMerge(base, readLocal());

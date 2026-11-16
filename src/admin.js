@@ -1,5 +1,6 @@
 import GUI from 'lil-gui';
 import { DEFAULTS, diff, writeLocal, deepMerge } from './config.js';
+import { loadPublishSettings, savePublishSettings, guessRepo, publishConfig, publishModel } from './publish.js';
 
 // Admin panel: generated from the config object itself, so a new key in
 // DEFAULTS shows up here with no extra code. Open with ?admin=1 or a
@@ -38,7 +39,7 @@ const RANGES = {
 const RELOAD_KEYS = new Set(['character.url', 'character.animations']);
 const RESTART_KEYS = new Set(['mode', 'camera.facing']);
 
-export function createAdmin({ config, base, onChange, onReloadModel, onLocalModel, getInfo }) {
+export function createAdmin({ config, base, onChange, onReloadModel, onLocalModel, getInfo, toast = alert }) {
   const gui = new GUI({ title: 'Admin · LineWorld' });
   gui.domElement.classList.add('admin');
   if (innerWidth < 600) gui.close(); // don't cover the phone screen on open
@@ -87,7 +88,7 @@ export function createAdmin({ config, base, onChange, onReloadModel, onLocalMode
   };
 
   const actions = {
-    'Load local .glb…': () => pickFile('.glb,.gltf', (f) => onLocalModel(URL.createObjectURL(f))),
+    'Load local .glb…': () => pickFile('.glb,.gltf', (f) => { localModel = f; onLocalModel(URL.createObjectURL(f)); }),
     'Export config JSON': () => download('lineworld.config.json', JSON.stringify(deepMerge(base, diff(base, config)), null, 2)),
     'Import config JSON': () => pickFile('.json', async (f) => {
       writeLocal(diff(base, deepMerge(DEFAULTS, JSON.parse(await f.text()))));
@@ -97,7 +98,47 @@ export function createAdmin({ config, base, onChange, onReloadModel, onLocalMode
   };
   for (const k of Object.keys(actions)) gui.add(actions, k);
 
-  return { gui, refresh };
+  // ---- Publish: commit to GitHub → Pages redeploys (the "backend") ----
+  let localModel = null;
+  const ps = loadPublishSettings();
+  ps.repo ||= guessRepo();
+  ps.profile ||= new URLSearchParams(location.search).get('profile') || '';
+  const pub = gui.addFolder('Publish (GitHub)').close();
+  const save = () => savePublishSettings(ps);
+  pub.add(ps, 'repo').name('repo owner/name').onFinishChange(save);
+  pub.add(ps, 'branch').onFinishChange(save);
+  pub.add(ps, 'profile').name("profile ('' = default)").onFinishChange(save);
+  pub.add(ps, 'token').name('token').onFinishChange(save).$input.type = 'password';
+  pub.add(ps, 'remember').name('remember token here').onFinishChange(save);
+  const effective = () => deepMerge(base, diff(base, config));
+  const run = async (label, fn) => {
+    try {
+      toast(`${label}…`);
+      const url = await fn();
+      toast(`${label}: done. The site updates in about 1–2 minutes.`);
+      console.info('[publish]', url);
+    } catch (e) {
+      toast(`${label} failed: ${e.message}`);
+    }
+  };
+  pub.add({ go: () => run('Publish config', () => publishConfig(ps, effective(), config.ui.title)) }, 'go').name('Publish config');
+  pub.add({
+    go: () => run('Publish model + config', async () => {
+      if (!localModel) throw new Error('Load a local .glb first');
+      config.character.url = await publishModel(ps, localModel);
+      persist();
+      return publishConfig(ps, effective(), config.ui.title);
+    }),
+  }, 'go').name('Publish loaded .glb + config');
+  pub.add({
+    go: () => {
+      const q = new URLSearchParams(location.search);
+      if (ps.profile) q.set('profile', ps.profile); else q.delete('profile');
+      location.search = q.toString();
+    },
+  }, 'go').name('Open this profile');
+
+  return { gui, refresh, setLocalModel: (f) => { localModel = f; } };
 }
 
 function pickFile(accept, cb) {

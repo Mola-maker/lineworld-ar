@@ -106,6 +106,7 @@ function openAdmin() {
     onReloadModel: () => loadModel(),
     onLocalModel: (url) => loadModel(url),
     getInfo: () => ({ ...character.info, depth: depth.info }),
+    toast,
   });
   admin.refresh();
 }
@@ -122,7 +123,7 @@ addEventListener('dragover', (e) => e.preventDefault());
 addEventListener('drop', (e) => {
   e.preventDefault();
   const f = [...e.dataTransfer.files].find((x) => /\.(glb|gltf)$/i.test(x.name));
-  if (f) loadModel(URL.createObjectURL(f)).then(() => { openAdmin(); toast(`Loaded ${f.name}`); });
+  if (f) loadModel(URL.createObjectURL(f)).then(() => { openAdmin(); admin.setLocalModel?.(f); toast(`Loaded ${f.name}`); });
 });
 
 addEventListener('resize', () => {

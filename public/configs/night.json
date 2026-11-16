@@ -1,0 +1,12 @@
+{
+  "ui": { "title": "LineWorld · Night" },
+  "lineArt": {
+    "lineColor": "#f3e9c6",
+    "backgroundColor": "#101a33",
+    "fillAmount": 0.25,
+    "fillTint": "#3a4f7a",
+    "grain": 0.06
+  },
+  "character": { "outlineColor": "#f3e9c6" },
+  "grounding": { "shadowOpacity": 0.5 }
+}
